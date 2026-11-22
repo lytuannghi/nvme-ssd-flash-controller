@@ -1,0 +1,22 @@
+================================================================================
+Design:            nvme_ssd_controller_top
+Process:           TSMC 28nm HPC+ Logic Standard Cells
+Synthesis Tool:    Synopsys Design Compiler Ultra vT-2022.03-SP5
+================================================================================
+
+Hierarchical Area Breakdown:
+--------------------------------------------------------------------------------
+Module Instance           Gate Count    Cell Area (um2)  SRAM Area (um2) Total Area (um2)
+--------------------------------------------------------------------------------
+nvme_ssd_controller_top       96,500        144,750.00        48,000.00       192,750.00
+  u_cmd_parser                 7,200         10,800.00             0.00        10,800.00
+  u_queue_mgr                 18,400         27,600.00             0.00        27,600.00
+  u_ftl                       22,600         33,900.00        24,000.00        57,900.00
+  u_bch_ecc                   24,800         37,200.00             0.00        37,200.00
+  u_nand_ctrl                 23,500         35,250.00        24,000.00        59,250.00
+--------------------------------------------------------------------------------
+Total Equivalent NAND2 Gates: 96,500
+Total Dynamic Power:          24.8 mW @ 250 MHz, 0.9V
+Total Leakage Power:          0.65 mW
+Target Die Dimensions:        1550 um x 1550 um (with Padring & Guardring)
+================================================================================

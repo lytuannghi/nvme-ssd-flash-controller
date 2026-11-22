@@ -1,0 +1,59 @@
+================================================================================
+Design:            nvme_ssd_controller_top
+Process:           TSMC 28nm HPC+ Logic Library
+Operating Corner:  Slow-Slow (SS), 0.90V, 125C
+Target Clock:      clk @ 250.00 MHz (Clock Period = 4.000 ns)
+Synthesis Tool:    Synopsys Design Compiler Ultra vT-2022.03-SP5
+================================================================================
+
+  Point                                                   Incr       Path
+  -----------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.000      0.000
+  clock network delay (ideal)                             0.000      0.000
+  u_bch_ecc/lfsr_parity_reg[62]/CP (DFCNQD1BWP)           0.000      0.000 r
+  u_bch_ecc/lfsr_parity_reg[62]/Q (DFCNQD1BWP)            0.104      0.104 f
+  u_bch_ecc/U341/ZN (XOR2D1BWP)                           0.128      0.232 r
+  u_bch_ecc/U412/ZN (XOR2D1BWP)                           0.141      0.373 f
+  u_bch_ecc/lfsr_parity_reg[63]/D (DFCNQD1BWP)            0.128      0.501 r
+  data arrival time                                                  0.501
+
+  clock clk (rise edge)                                   4.000      4.000
+  clock network delay (ideal)                             0.000      4.000
+  clock uncertainty                                      -0.150      3.850
+  u_bch_ecc/lfsr_parity_reg[63]/CP (DFCNQD1BWP)           0.000      3.850 r
+  library setup time                                     -0.065      3.785
+  data required time                                                 3.785
+  -----------------------------------------------------------------------------
+  data required time                                                 3.785
+  data arrival time                                                 -0.501
+  -----------------------------------------------------------------------------
+  slack (MET) - SETUP SLACK                                         +3.284 ns
+
+  Point                                                   Incr       Path
+  -----------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.000      0.000
+  clock network delay (ideal)                             0.000      0.000
+  u_cmd_parser/out_cmd_id_reg[0]/CP (DFCNQD1BWP)          0.000      0.000 r
+  u_cmd_parser/out_cmd_id_reg[0]/Q (DFCNQD1BWP)           0.088      0.088 r
+  post_cid_reg[0]/D (DFCNQD1BWP)                          0.048      0.136 r
+  data arrival time                                                  0.136
+
+  clock clk (rise edge)                                   0.000      0.000
+  clock network delay (ideal)                             0.000      0.000
+  clock uncertainty                                       0.080      0.080
+  post_cid_reg[0]/CP (DFCNQD1BWP)                         0.000      0.080 r
+  library hold time                                       0.022      0.102
+  data required time                                                 0.102
+  -----------------------------------------------------------------------------
+  data arrival time                                                  0.136
+  data required time                                                -0.102
+  -----------------------------------------------------------------------------
+  slack (MET) - HOLD SLACK                                          +0.034 ns
+
+================================================================================
+TIMING SUMMARY:
+  Clock Period:         4.000 ns (250.00 MHz)
+  Critical Path Setup:  Slack = +3.284 ns (PASSED)
+  Critical Path Hold:   Slack = +0.034 ns (PASSED)
+  Design Rule Violations: 0 (No Max Transition / Capacitance Violations)
+================================================================================
