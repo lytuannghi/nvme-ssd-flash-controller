@@ -97,17 +97,21 @@ module bch_ecc_engine (
 
                 if (dec_word_count == 4'd15) begin
                     dec_done <= 1'b1;
-                    // Compare syndrome against parity
-                    if ((syndrome ^ dec_parity_in) == 64'd0) begin
-                        // Zero error case
+                    // Check trailing-word GF syndrome difference against received parity
+                    if (((syndrome ^ dec_data_in) ^ dec_parity_in) == 64'd0) begin
                         dec_data_corrected <= dec_data_in;
                         dec_errors_found   <= 5'd0;
                         dec_uncorrectable  <= 1'b0;
-                    end else begin
-                        // Error detected! Invert error bit based on syndrome error vector
-                        dec_data_corrected <= dec_data_in ^ 64'h0000000000000001; // Correct 1-bit flip
+                    end else if ((((syndrome ^ dec_data_in) ^ dec_parity_in) &
+                                  (((syndrome ^ dec_data_in) ^ dec_parity_in) - 64'd1)) == 64'd0) begin
+                        // Exact 1-bit error vector (one-hot across bits 0..63)
+                        dec_data_corrected <= dec_data_in ^ ((syndrome ^ dec_data_in) ^ dec_parity_in);
                         dec_errors_found   <= 5'd1;
                         dec_uncorrectable  <= 1'b0;
+                    end else begin
+                        dec_data_corrected <= dec_data_in;
+                        dec_errors_found   <= 5'd2;
+                        dec_uncorrectable  <= 1'b1;
                     end
                 end
             end

@@ -1,22 +1,30 @@
 ================================================================================
-Design:            nvme_ssd_controller_top
-Process:           TSMC 28nm HPC+ Logic Standard Cells
-Synthesis Tool:    Synopsys Design Compiler Ultra vT-2022.03-SP5
+RTL STRUCTURAL & SYNTHESIS READINESS SUMMARY: nvme_ssd_controller_top
+Target Library Constraints: SkyWater 130nm HD Standard Cells (SDC)
 ================================================================================
 
-Hierarchical Area Breakdown:
---------------------------------------------------------------------------------
-Module Instance           Gate Count    Cell Area (um2)  SRAM Area (um2) Total Area (um2)
---------------------------------------------------------------------------------
-nvme_ssd_controller_top       96,500        144,750.00        48,000.00       192,750.00
-  u_cmd_parser                 7,200         10,800.00             0.00        10,800.00
-  u_queue_mgr                 18,400         27,600.00             0.00        27,600.00
-  u_ftl                       22,600         33,900.00        24,000.00        57,900.00
-  u_bch_ecc                   24,800         37,200.00             0.00        37,200.00
-  u_nand_ctrl                 23,500         35,250.00        24,000.00        59,250.00
---------------------------------------------------------------------------------
-Total Equivalent NAND2 Gates: 96,500
-Total Dynamic Power:          24.8 mW @ 250 MHz, 0.9V
-Total Leakage Power:          0.65 mW
-Target Die Dimensions:        1550 um x 1550 um (with Padring & Guardring)
 ================================================================================
+RTL SYNTHESIS READINESS & CONSTRAINT REPORT: nvme-ssd-flash-controller
+Method : Static Verilog/SV Structural Parser + SDC Constraint Audit
+Note   : Foundry Gate-Level Netlist & STA require PDK Liberty (.lib) + Synopsys/OpenROAD
+================================================================================
+RTL Source Files Inspected : 6
+Code Lines (Non-Comment)   : 774
+Sequential Blocks          : 9
+Combinational Blocks       : 0
+Declared reg/logic Signals : 76
+
+MODULE BREAKDOWN:
+  rtl\ecc\bch_ecc_engine.v                      | modules=bch_ecc_engine               | loc=  90 | seq= 2 | comb= 0
+  rtl\ftl\flash_translation_layer.v             | modules=flash_translation_layer      | loc=  82 | seq= 1 | comb= 0
+  rtl\nand_ctrl\toggle_nand_channel_controller.v | modules=toggle_nand_channel_controller | loc= 148 | seq= 1 | comb= 0
+  rtl\nvme\nvme_admin_cmd_parser.v              | modules=nvme_admin_cmd_parser        | loc=  99 | seq= 1 | comb= 0
+  rtl\nvme_ssd_controller_top.v                 | modules=nvme_ssd_controller_top      | loc= 251 | seq= 1 | comb= 0
+  rtl\queue\nvme_queue_manager.v                | modules=nvme_queue_manager           | loc= 104 | seq= 3 | comb= 0
+
+SDC CLOCK CONSTRAINTS:
+  nvme_timing.sdc: port=clk | period=4.00 ns | target=250.00 MHz
+
+ARITHMETIC DIVISION/MODULO CHECK: CLEAN (0 combinational / or % operators)
+================================================================================
+

@@ -1,102 +1,110 @@
 #!/usr/bin/env python3
 """
-ASIC Physical Layout Generator (GDSII Stream Format)
-Design: Enterprise NVMe PCIe Gen3 SSD Controller ASIC
-Process: TSMC 28nm HPC+ CMOS
-Dimensions: 1550 um x 1550 um
+SkyWater 130nm Multi-Layer Physical GDSII Layout Generator for nvme_ssd_controller_top.
+Produces a DRC-clean macro floorplan, dual M4/M5 power ring, standard-cell rails,
+I/O pad ring, and verifies all geometric rules with verify_gds_drc.py.
 """
-
-import struct
 import os
+import sys
 
-def create_gds_record(rec_type, data_type, data_bytes=b""):
-    rec_length = len(data_bytes) + 4
-    header = struct.pack(">HH", rec_length, (rec_type << 8) | data_type)
-    return header + data_bytes
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
-def create_boundary(layer, datatype, coords):
-    res = bytearray()
-    res += create_gds_record(0x08, 0x00) # BOUNDARY
-    res += create_gds_record(0x0D, 0x02, struct.pack(">h", layer))
-    res += create_gds_record(0x0E, 0x02, struct.pack(">h", datatype))
-    coord_bytes = bytearray()
-    for x, y in coords:
-        coord_bytes += struct.pack(">ii", int(x), int(y))
-    coord_bytes += struct.pack(">ii", int(coords[0][0]), int(coords[0][1]))
-    res += create_gds_record(0x10, 0x03, coord_bytes) # XY
-    res += create_gds_record(0x11, 0x00) # ENDEL
-    return res
+from verify_gds_drc import GDSWriter, verify_gds
 
-def create_box(layer, datatype, x1, y1, x2, y2):
-    return create_boundary(layer, datatype, [(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
 
-def main():
-    out_dir = os.path.join(os.path.dirname(__file__), "..", "gds")
-    os.makedirs(out_dir, exist_ok=True)
-    gds_path = os.path.join(out_dir, "nvme_ssd_controller_top.gds")
+def build_layout():
+    layout_dir = os.path.dirname(SCRIPT_DIR)
+    gds_path = os.path.join(layout_dir, "gds", "nvme_ssd_controller_top.gds")
+    report_path = os.path.join(layout_dir, "reports", "drc_report.txt")
+    os.makedirs(os.path.dirname(gds_path), exist_ok=True)
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
 
-    stream = bytearray()
-    # HEADER
-    stream += create_gds_record(0x00, 0x02, struct.pack(">h", 600))
-    # BGNLIB
-    stream += create_gds_record(0x01, 0x02, struct.pack(">12h", 2026, 11, 22, 12, 0, 0, 2026, 11, 22, 12, 0, 0))
-    # LIBNAME
-    lib_name = b"NVME_SSD_CONTROLLER_LIB\0"
-    if len(lib_name) % 2 != 0: lib_name += b"\0"
-    stream += create_gds_record(0x02, 0x06, lib_name)
-    # UNITS (0.001 um database unit = 1 nm)
-    stream += create_gds_record(0x03, 0x05, struct.pack(">dd", 0.001, 1e-9))
+    die_w = 420000
+    die_h = 420000
+    macro_cols = 4
+    macro_rows = 4
+    pad_count = 12
 
-    # BGNSTR
-    stream += create_gds_record(0x05, 0x02, struct.pack(">12h", 2026, 11, 22, 12, 0, 0, 2026, 11, 22, 12, 0, 0))
-    # STRNAME
-    cell_name = b"nvme_ssd_controller_top\0"
-    if len(cell_name) % 2 != 0: cell_name += b"\0"
-    stream += create_gds_record(0x06, 0x06, cell_name)
+    L_DIE_AREA = 235
+    L_NWELL = 64
+    L_DIFF = 65
+    L_POLY = 66
+    L_CONTACT = 67
+    L_MET1 = 68
+    L_MET2 = 70
+    L_MET3 = 72
+    L_MET4 = 74
+    L_VIA4 = 75
+    L_MET5 = 76
+    L_PAD = 108
 
-    # 1. Chip Sealring & Boundary: 1550um x 1550um
-    stream += create_box(100, 0, 0, 0, 1550000, 1550000)
-    stream += create_box(100, 1, 25000, 25000, 1525000, 1525000)
+    gds = GDSWriter(gds_path, "NVME_SSD_LIB")
+    gds.start_structure("nvme_ssd_controller_top")
+    gds.add_box(L_DIE_AREA, 0, 0, 0, die_w, die_h)
 
-    # 2. IO Pad Ring (Outer perimeter: PCIe differential pads, NAND Flash pads)
-    for i in range(14):
-        pos = 65000 + i * 105000
-        stream += create_box(105, 0, pos, 30000, pos + 70000, 105000)      # Bottom Pads
-        stream += create_box(105, 0, pos, 1445000, pos + 70000, 1520000) # Top Pads
-        stream += create_box(105, 0, 30000, pos, 105000, pos + 70000)      # Left Pads
-        stream += create_box(105, 0, 1445000, pos, 1520000, pos + 70000) # Right Pads
+    RING_M = 28000
+    RING_W = 5000
+    CORE_X1 = RING_M + RING_W + 10000
+    CORE_Y1 = RING_M + RING_W + 10000
+    CORE_X2 = die_w - RING_M - RING_W - 10000
+    CORE_Y2 = die_h - RING_M - RING_W - 10000
 
-    # 3. Core Logic Floorplan Blocks
-    # u_cmd_parser: PCIe Ingestion & Command Parser
-    stream += create_box(30, 0, 150000, 150000, 480000, 450000)
-    # u_queue_mgr: Multi-Queue Arbiter & Doorbell Registers
-    stream += create_box(31, 0, 520000, 150000, 950000, 450000)
-    # u_ftl: Flash Translation Layer & Mapping RAM Macro
-    stream += create_box(32, 0, 150000, 500000, 700000, 950000)
-    stream += create_box(33, 0, 200000, 540000, 650000, 900000) # FTL L2P Table SRAM
-    # u_bch_ecc: Galois Field BCH ECC Encoder / Decoder
-    stream += create_box(34, 0, 750000, 500000, 1400000, 950000)
-    # u_nand_ctrl: 8-Channel Toggle DDR NAND Controller & Data Buffers
-    stream += create_box(35, 0, 150000, 1000000, 1400000, 1400000)
-    # 8 Channel Toggle PHY Interface Blocks
-    for ch in range(8):
-        ch_pos = 180000 + ch * 145000
-        stream += create_box(36, 0, ch_pos, 1040000, ch_pos + 120000, 1360000)
+    gds.add_box(L_MET5, 0, RING_M, RING_M, die_w - RING_M, RING_M + RING_W)
+    gds.add_box(L_MET5, 0, RING_M, die_h - RING_M - RING_W, die_w - RING_M, die_h - RING_M)
+    gds.add_box(L_MET4, 0, RING_M, RING_M, RING_M + RING_W, die_h - RING_M)
+    gds.add_box(L_MET4, 0, die_w - RING_M - RING_W, RING_M, die_w - RING_M, die_h - RING_M)
 
-    # 4. Power Grid Network (VDD / VSS Straps in Metal 8 & Metal 9)
-    for p in range(160000, 1400000, 90000):
-        stream += create_box(48, 0, p, 130000, p + 14000, 1420000)      # M8 VDD/VSS Vertical Straps
-        stream += create_box(49, 0, 130000, p, 1420000, p + 14000)      # M9 VDD/VSS Horizontal Straps
+    for vx in (RING_M + 1000, die_w - RING_M - RING_W + 1000):
+        for vy in (RING_M + 1000, die_h - RING_M - RING_W + 1000):
+            gds.add_box(L_VIA4, 0, vx, vy, vx + 3000, vy + 3000)
 
-    # ENDSTR
-    stream += create_gds_record(0x07, 0x00)
-    # ENDLIB
-    stream += create_gds_record(0x04, 0x00)
+    PAD_W, PAD_H = 12000, 12000
+    span_x = (CORE_X2 - CORE_X1) // pad_count
+    span_y = (CORE_Y2 - CORE_Y1) // pad_count
+    for i in range(pad_count):
+        px = CORE_X1 + i * span_x + (span_x - PAD_W) // 2
+        gds.add_box(L_PAD, 0, px, 6000, px + PAD_W, 6000 + PAD_H)
+        gds.add_box(L_PAD, 0, px, die_h - 6000 - PAD_H, px + PAD_W, die_h - 6000)
+        py = CORE_Y1 + i * span_y + (span_y - PAD_H) // 2
+        gds.add_box(L_PAD, 0, 6000, py, 6000 + PAD_W, py + PAD_H)
+        gds.add_box(L_PAD, 0, die_w - 6000 - PAD_W, py, die_w - 6000, py + PAD_H)
 
-    with open(gds_path, "wb") as f:
-        f.write(stream)
+    mw = (CORE_X2 - CORE_X1 - (macro_cols - 1) * 14000) // macro_cols
+    mh = (CORE_Y2 - CORE_Y1 - (macro_rows - 1) * 14000) // macro_rows
+    for r in range(macro_rows):
+        for c in range(macro_cols):
+            mx1 = CORE_X1 + c * (mw + 14000)
+            my1 = CORE_Y1 + r * (mh + 14000)
+            mx2 = mx1 + mw
+            my2 = my1 + mh
+            gds.add_box(L_NWELL, 0, mx1 + 2000, my1 + 2000, mx2 - 2000, my1 + mh // 2)
+            gds.add_box(L_DIFF, 0, mx1 + 3500, my1 + 3500, mx2 - 3500, my1 + 11500)
+            gds.add_box(L_POLY, 0, mx1 + 5000, my1 + 2800, mx1 + 6500, my1 + 12500)
+            gds.add_box(L_CONTACT, 0, mx1 + 8500, my1 + 5500, mx1 + 10000, my1 + 7000)
+            for ry in range(my1 + 15000, my2 - 6000, 4000):
+                gds.add_box(L_MET1, 0, mx1 + 3000, ry, mx2 - 3000, ry + 1500)
+            for bx in range(mx1 + 12000, mx2 - 12000, 12000):
+                gds.add_box(L_MET2, 0, bx, my1 + 14000, bx + 2000, my2 - 6000)
 
-    print(f"[INFO] GDSII physical layout generated successfully: {gds_path} ({len(stream)} bytes)")
+    for c in range(1, macro_cols):
+        cx = CORE_X1 + c * (mw + 14000) - 9000
+        gds.add_box(L_MET3, 0, cx, CORE_Y1, cx + 3000, CORE_Y2)
+        gds.add_box(L_MET3, 0, cx + 6000, CORE_Y1, cx + 9000, CORE_Y2)
+
+    gds.end_structure()
+    gds.close()
+
+    total_v = verify_gds(
+        gds_path=gds_path,
+        report_path=report_path,
+        top_name="nvme_ssd_controller_top",
+        tech_name="SkyWater 130nm",
+    )
+    print(f"[OK] Generated {gds_path} ({os.path.getsize(gds_path)} bytes), DRC violations={total_v}")
+    return 0 if total_v == 0 else 1
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(build_layout())

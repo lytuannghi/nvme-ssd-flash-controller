@@ -6,7 +6,7 @@
 //              - Manages 8 independent Toggle NAND channels in parallel.
 //              - Implements Page Read (00h-30h), Page Program (80h-10h), Block Erase (60h-D0h).
 //              - Generates CLE, ALE, CE_n, RE_n, WE_n, and bi-directional DQS strobes.
-//              - Interleaved multi-die operations for aggregate throughput > 3.2 GB/s.
+//              - Packed flat DQ buses for strict Verilog-2005 synthesizability.
 // =============================================================================
 
 `timescale 1ns / 1ps
@@ -14,29 +14,29 @@
 module toggle_nand_channel_controller #(
     parameter CHANNELS = 8
 )(
-    input  wire                 clk,
-    input  wire                 rst_n,
+    input  wire                  clk,
+    input  wire                  rst_n,
 
     // Internal Command Interface from FTL
-    input  wire                 nand_cmd_valid,
-    input  wire [2:0]           nand_channel_sel,
-    input  wire [1:0]           nand_op,          // 0: Read Page, 1: Program Page, 2: Block Erase, 3: Read Status
-    input  wire [9:0]           nand_block,
-    input  wire [7:0]           nand_page,
-    input  wire [63:0]          nand_wr_data,
-    output reg                  nand_busy,
-    output reg                  nand_done,
-    output reg  [63:0]          nand_rd_data,
+    input  wire                  nand_cmd_valid,
+    input  wire [2:0]            nand_channel_sel,
+    input  wire [1:0]            nand_op,          // 0: Read Page, 1: Program Page, 2: Block Erase, 3: Read Status
+    input  wire [9:0]            nand_block,
+    input  wire [7:0]            nand_page,
+    input  wire [63:0]           nand_wr_data,
+    output reg                   nand_busy,
+    output reg                   nand_done,
+    output reg  [63:0]           nand_rd_data,
 
-    // Physical Toggle DDR NAND Interface (8 Channels)
-    output reg  [CHANNELS-1:0]  nand_cle,         // Command Latch Enable
-    output reg  [CHANNELS-1:0]  nand_ale,         // Address Latch Enable
-    output reg  [CHANNELS-1:0]  nand_ce_n,        // Chip Enable (Active Low)
-    output reg  [CHANNELS-1:0]  nand_we_n,        // Write Enable (Active Low)
-    output reg  [CHANNELS-1:0]  nand_re_n,        // Read Enable (Active Low)
-    output reg  [CHANNELS-1:0]  nand_dqs,         // Data Strobe
-    output reg  [7:0]           nand_dq_out [0:CHANNELS-1],
-    input  wire [7:0]           nand_dq_in  [0:CHANNELS-1]
+    // Physical Toggle DDR NAND Interface (8 Channels, Packed)
+    output reg  [CHANNELS-1:0]   nand_cle,         // Command Latch Enable
+    output reg  [CHANNELS-1:0]   nand_ale,         // Address Latch Enable
+    output reg  [CHANNELS-1:0]   nand_ce_n,        // Chip Enable (Active Low)
+    output reg  [CHANNELS-1:0]   nand_we_n,        // Write Enable (Active Low)
+    output reg  [CHANNELS-1:0]   nand_re_n,        // Read Enable (Active Low)
+    output reg  [CHANNELS-1:0]   nand_dqs,         // Data Strobe
+    output reg  [CHANNELS*8-1:0] nand_dq_out,      // Packed 8x8-bit DQ out
+    input  wire [CHANNELS*8-1:0] nand_dq_in        // Packed 8x8-bit DQ in
 );
 
     // NAND Command Opcodes
@@ -60,7 +60,6 @@ module toggle_nand_channel_controller #(
 
     reg [2:0] state;
     reg [3:0] step_cnt;
-    integer c;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -70,16 +69,13 @@ module toggle_nand_channel_controller #(
             nand_done    <= 1'b0;
             nand_rd_data <= 64'd0;
 
-            nand_cle  <= {CHANNELS{1'b0}};
-            nand_ale  <= {CHANNELS{1'b0}};
-            nand_ce_n <= {CHANNELS{1'b1}};
-            nand_we_n <= {CHANNELS{1'b1}};
-            nand_re_n <= {CHANNELS{1'b1}};
-            nand_dqs  <= {CHANNELS{1'b0}};
-
-            for (c = 0; c < CHANNELS; c = c + 1) begin
-                nand_dq_out[c] <= 8'd0;
-            end
+            nand_cle     <= {CHANNELS{1'b0}};
+            nand_ale     <= {CHANNELS{1'b0}};
+            nand_ce_n    <= {CHANNELS{1'b1}};
+            nand_we_n    <= {CHANNELS{1'b1}};
+            nand_re_n    <= {CHANNELS{1'b1}};
+            nand_dqs     <= {CHANNELS{1'b0}};
+            nand_dq_out  <= {(CHANNELS*8){1'b0}};
         end else begin
             nand_done <= 1'b0;
 
@@ -96,20 +92,19 @@ module toggle_nand_channel_controller #(
                         nand_busy <= 1'b1;
                         state     <= ST_CMD1;
                         step_cnt  <= 4'd0;
-                        nand_ce_n[nand_channel_sel] <= 1'b0; // Assert selected channel CE#
+                        nand_ce_n[nand_channel_sel] <= 1'b0;
                     end
                 end
 
                 ST_CMD1: begin
-                    // Assert Command Phase
                     nand_cle[nand_channel_sel]  <= 1'b1;
                     nand_we_n[nand_channel_sel] <= 1'b0;
 
                     case (nand_op)
-                        2'd0: nand_dq_out[nand_channel_sel] <= CMD_READ_SETUP;
-                        2'd1: nand_dq_out[nand_channel_sel] <= CMD_PROG_SETUP;
-                        2'd2: nand_dq_out[nand_channel_sel] <= CMD_ERASE_SETUP;
-                        2'd3: nand_dq_out[nand_channel_sel] <= CMD_STATUS;
+                        2'd0: nand_dq_out[nand_channel_sel*8 +: 8] <= CMD_READ_SETUP;
+                        2'd1: nand_dq_out[nand_channel_sel*8 +: 8] <= CMD_PROG_SETUP;
+                        2'd2: nand_dq_out[nand_channel_sel*8 +: 8] <= CMD_ERASE_SETUP;
+                        2'd3: nand_dq_out[nand_channel_sel*8 +: 8] <= CMD_STATUS;
                     endcase
 
                     state <= ST_ADDR;
@@ -120,30 +115,26 @@ module toggle_nand_channel_controller #(
                     nand_ale[nand_channel_sel]  <= 1'b1;
                     nand_we_n[nand_channel_sel] <= 1'b0;
 
-                    // Address Phase (Page + Block)
                     if (step_cnt == 4'd0) begin
-                        nand_dq_out[nand_channel_sel] <= nand_page;
+                        nand_dq_out[nand_channel_sel*8 +: 8] <= nand_page;
                         step_cnt <= step_cnt + 4'd1;
                     end else begin
-                        nand_dq_out[nand_channel_sel] <= nand_block[7:0];
-                        nand_ale[nand_channel_sel]    <= 1'b0;
-                        step_cnt                      <= 4'd0;
+                        nand_dq_out[nand_channel_sel*8 +: 8] <= nand_block[7:0];
+                        nand_ale[nand_channel_sel]           <= 1'b0;
+                        step_cnt                             <= 4'd0;
 
-                        if (nand_op == 2'd1) // Program
+                        if (nand_op == 2'd1)
                             state <= ST_DATA_TX;
-                        else if (nand_op == 2'd0) // Read
-                            state <= ST_CMD2;
                         else
                             state <= ST_CMD2;
                     end
                 end
 
                 ST_DATA_TX: begin
-                    // Write data to NAND buffer
-                    nand_ale[nand_channel_sel]  <= 1'b0;
-                    nand_we_n[nand_channel_sel] <= 1'b0;
-                    nand_dqs[nand_channel_sel]  <= ~nand_dqs[nand_channel_sel]; // Toggle DQS
-                    nand_dq_out[nand_channel_sel] <= nand_wr_data[7:0];
+                    nand_ale[nand_channel_sel]           <= 1'b0;
+                    nand_we_n[nand_channel_sel]          <= 1'b0;
+                    nand_dqs[nand_channel_sel]           <= ~nand_dqs[nand_channel_sel];
+                    nand_dq_out[nand_channel_sel*8 +: 8] <= nand_wr_data[7:0];
                     state <= ST_CMD2;
                 end
 
@@ -152,13 +143,13 @@ module toggle_nand_channel_controller #(
                     nand_we_n[nand_channel_sel] <= 1'b0;
 
                     case (nand_op)
-                        2'd0: nand_dq_out[nand_channel_sel] <= CMD_READ_CONFIRM;
-                        2'd1: nand_dq_out[nand_channel_sel] <= CMD_PROG_CONFIRM;
-                        2'd2: nand_dq_out[nand_channel_sel] <= CMD_ERASE_CONFIRM;
+                        2'd0: nand_dq_out[nand_channel_sel*8 +: 8] <= CMD_READ_CONFIRM;
+                        2'd1: nand_dq_out[nand_channel_sel*8 +: 8] <= CMD_PROG_CONFIRM;
+                        2'd2: nand_dq_out[nand_channel_sel*8 +: 8] <= CMD_ERASE_CONFIRM;
                         default: ;
                     endcase
 
-                    state <= ST_WAIT_TR;
+                    state    <= ST_WAIT_TR;
                     step_cnt <= 4'd0;
                 end
 
@@ -166,7 +157,6 @@ module toggle_nand_channel_controller #(
                     nand_cle[nand_channel_sel]  <= 1'b0;
                     nand_we_n[nand_channel_sel] <= 1'b1;
 
-                    // Simulate tR (cell read time) or tPROG
                     if (step_cnt == 4'd3) begin
                         if (nand_op == 2'd0)
                             state <= ST_DATA_RX;
@@ -178,9 +168,8 @@ module toggle_nand_channel_controller #(
                 end
 
                 ST_DATA_RX: begin
-                    // Read Data back from NAND
                     nand_re_n[nand_channel_sel] <= 1'b0;
-                    nand_rd_data <= {56'hA5A5A5A5A5A5A5, nand_dq_in[nand_channel_sel]};
+                    nand_rd_data <= {56'hA5A5A5A5A5A5A5, nand_dq_in[nand_channel_sel*8 +: 8]};
                     state <= ST_DONE;
                 end
 

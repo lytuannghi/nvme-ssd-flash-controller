@@ -2,7 +2,7 @@
 # Synopsys Design Constraints (SDC)
 # Design: nvme_ssd_controller_top
 # Operating Frequency: 250 MHz (Clock Period = 4.000 ns)
-# Process: TSMC 28nm HPC+ Logic Library
+# Process: SkyWater 130nm HD Standard Cell Library (1.80V, 25C)
 # ==============================================================================
 
 # Primary Master Clock Definition (250 MHz)
@@ -22,7 +22,7 @@ set_output_delay -clock clk -max 0.900 [get_ports {host_cmd_ready host_cqe_* hos
 set_output_delay -clock clk -min 0.150 [get_ports {host_cmd_ready host_cqe_* host_msix_irq nand_cle* nand_ale* nand_ce_n* nand_we_n* nand_re_n* nand_dqs* nand_dq_out* status_*}]
 
 # Drive Strength and Output Load Modeling
-set_driving_cell -lib_cell INVD2BWP -library tcbn28hpcplus_ss0p9v125c [all_inputs]
+set_driving_cell -lib_cell sky130_fd_sc_hd__inv_2 -library sky130_fd_sc_hd [all_inputs]
 set_load 0.025 [all_outputs]
 
 # Multicycle Path & False Path Constraints

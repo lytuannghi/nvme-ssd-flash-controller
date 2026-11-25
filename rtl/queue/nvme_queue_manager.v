@@ -94,9 +94,9 @@ module nvme_queue_manager #(
         end else begin
             if (sq_cmd_ack) begin
                 // Acknowledge fetch, increment SQ head
-                sq_head[fetch_qid] <= (sq_head[fetch_qid] + 16'd1) % QUEUE_DEPTH;
+                sq_head[fetch_qid] <= (sq_head[fetch_qid] == QUEUE_DEPTH - 1) ? 16'd0 : (sq_head[fetch_qid] + 16'd1);
                 sq_cmd_avail       <= 1'b0;
-                rr_ptr             <= (rr_ptr + 4'd1) % NUM_QUEUES;
+                rr_ptr             <= (rr_ptr == NUM_QUEUES - 1) ? 4'd0 : (rr_ptr + 4'd1);
             end else if (!sq_cmd_avail) begin
                 // Search next active queue with pending commands
                 for (i = 0; i < NUM_QUEUES; i = i + 1) begin

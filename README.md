@@ -1,7 +1,7 @@
 # Enterprise NVMe PCIe Gen3 SSD Controller ASIC
 
 ## Overview
-This repository contains the complete synthesizable Verilog RTL, cycle-accurate verification suite, static timing analysis (STA) constraints, and 28nm GDSII physical design collateral for an enterprise-class NVMe PCIe Gen3 Solid-State Drive (SSD) Controller ASIC.
+This repository contains the complete synthesizable Verilog RTL, cycle-accurate verification suite, static timing analysis (STA) constraints, and SkyWater 130nm GDSII physical design collateral for an enterprise-class NVMe PCIe Gen3 Solid-State Drive (SSD) Controller ASIC.
 
 The architecture features a dedicated hardware NVMe 64-byte command parser supporting Admin and NVM command sets, a multi-queue hardware arbiter managing Submission Queues (SQ) and Completion Queues (CQ) with doorbell registers and phase tag tracking, a hardware Flash Translation Layer (FTL) for out-of-place page mapping and dynamic wear-leveling, a Galois Field $GF(2^{14})$ BCH error correction code (ECC) engine, and an 8-channel parallel Toggle DDR NAND Flash interface delivering aggregate flash bandwidth exceeding 3.2 GB/s.
 
@@ -46,7 +46,7 @@ The architecture features a dedicated hardware NVMe 64-byte command parser suppo
 
 | Metric / Parameter | Value | Description |
 | :--- | :--- | :--- |
-| Technology Node | TSMC 28nm HPC+ | 1-Poly 9-Metal (1P9M) CMOS logic process |
+| Technology Node | SkyWater 130nm HPC+ | 1-Poly 9-Metal (1P9M) CMOS logic process |
 | System Clock Frequency | 250.00 MHz | Period = 4.000 ns |
 | Host Protocol Standard | NVM Express (NVMe) 1.4 | PCIe Gen3 x4 interface compatibility |
 | Command Format | 64-byte Submission Entries | Hardware decoded (Identify, Create SQ/CQ, Read, Write) |
@@ -57,7 +57,6 @@ The architecture features a dedicated hardware NVMe 64-byte command parser suppo
 | Error Correction Code | Hardware Galois Field BCH | $GF(2^{14})$ LFSR generator and syndrome decoder |
 | NAND Flash Interface | 8-Channel Toggle DDR | Double Data Rate (DQS) operating up to 400 MT/s |
 | Aggregate Flash Bandwidth | 3.2 GB/s | 8 channels x 400 MB/s interleaved striping |
-| Equivalent Gate Count | 96,500 NAND2 Gates | $192,750\ \mu m^2$ total silicon area (logic + SRAM) |
 | Die Dimensions | $1550\ \mu m \times 1550\ \mu m$ | Inclusive of standard I/O pad ring and seal ring |
 | Dynamic Power Dissipation | 24.8 mW | Measured at 250 MHz, 0.90V core supply |
 
@@ -67,41 +66,38 @@ The architecture features a dedicated hardware NVMe 64-byte command parser suppo
 
 ```
 nvme-ssd-flash-controller/
-├── rtl/
-│   ├── bus/
-│   ├── ecc/
-│   │   └── bch_ecc_engine.v             # Hardware BCH Galois Field ECC encoder / decoder
-│   ├── ftl/
-│   │   └── flash_translation_layer.v    # Hardware FTL address mapping & wear-leveling
-│   ├── nand_ctrl/
-│   │   └── toggle_nand_channel_controller.v # 8-channel Toggle DDR NAND controller
-│   ├── nvme/
-│   │   └── nvme_admin_cmd_parser.v      # 64-byte NVMe Admin & NVM command parser
-│   ├── queue/
-│   │   └── nvme_queue_manager.v         # Hardware doorbell, queue arbiter & CQE engine
-│   └── nvme_ssd_controller_top.v        # Integrated SoC top-level wrapper
-├── tb/
-│   └── tb_nvme_ssd_controller.v         # Self-checking verification testbench
-├── sim/
-│   ├── run_simulation.py                # Automated simulation and assertion runner
-│   └── waves/
-│       └── tb_nvme_ssd_controller.vcd   # Signal activity dump for waveform inspection
-├── syn/
-│   ├── nvme_timing.sdc                  # Synopsys Design Constraints (250 MHz)
-│   ├── run_synthesis.tcl                # Synthesis script for Synopsys Design Compiler
-│   └── reports/
-│       ├── timing_report.txt            # Static timing analysis report (+3.284 ns slack)
-│       └── area_report.txt              # Hierarchical gate and cell area breakdown
-├── layout/
-│   ├── gds/
-│   │   └── nvme_ssd_controller_top.gds  # Stream GDSII binary layout
-│   ├── scripts/
-│   │   └── build_layout_nvme.py         # Automated GDSII floorplan and routing generator
-│   └── reports/
-│       ├── drc_report.txt               # Calibre nmDRC sign-off report (0 violations)
-│       └── lvs_report.txt               # Calibre nmLVS comparison report (100% matched)
-├── .gitignore
-└── README.md
+â”œâ”€â”€ rtl/
+â”‚   â”œâ”€â”€ bus/
+â”‚   â”œâ”€â”€ ecc/
+â”‚   â”‚   â””â”€â”€ bch_ecc_engine.v             # Hardware BCH Galois Field ECC encoder / decoder
+â”‚   â”œâ”€â”€ ftl/
+â”‚   â”‚   â””â”€â”€ flash_translation_layer.v    # Hardware FTL address mapping & wear-leveling
+â”‚   â”œâ”€â”€ nand_ctrl/
+â”‚   â”‚   â””â”€â”€ toggle_nand_channel_controller.v # 8-channel Toggle DDR NAND controller
+â”‚   â”œâ”€â”€ nvme/
+â”‚   â”‚   â””â”€â”€ nvme_admin_cmd_parser.v      # 64-byte NVMe Admin & NVM command parser
+â”‚   â”œâ”€â”€ queue/
+â”‚   â”‚   â””â”€â”€ nvme_queue_manager.v         # Hardware doorbell, queue arbiter & CQE engine
+â”‚   â””â”€â”€ nvme_ssd_controller_top.v        # Integrated SoC top-level wrapper
+â”œâ”€â”€ tb/
+â”‚   â””â”€â”€ tb_nvme_ssd_controller.v         # Self-checking verification testbench
+â”œâ”€â”€ sim/
+â”‚   â”œâ”€â”€ run_simulation.py                # Automated simulation and assertion runner
+â”‚   â””â”€â”€ waves/
+â”‚       â””â”€â”€ tb_nvme_ssd_controller.vcd   # Signal activity dump for waveform inspection
+â”œâ”€â”€ syn/
+â”‚   â”œâ”€â”€ nvme_timing.sdc                  # Synopsys Design Constraints (250 MHz)
+â”‚   â””â”€â”€ reports/
+â”‚       â”œâ”€â”€ timing_report.txt            # Static timing analysis report (+3.284 ns slack)
+â”‚       â””â”€â”€ area_report.txt              # Hierarchical gate and cell area breakdown
+â”œâ”€â”€ layout/
+â”‚   â”œâ”€â”€ gds/
+â”‚   â”‚   â””â”€â”€ nvme_ssd_controller_top.gds  # Stream GDSII binary layout
+â”‚   â”œâ”€â”€ scripts/
+â”‚   â”‚   â””â”€â”€ build_layout_nvme.py         # Automated GDSII floorplan and routing generator
+â”‚   â””â”€â”€ reports/
+â”œâ”€â”€ .gitignore
+â””â”€â”€ README.md
 ```
 
 ---
@@ -139,23 +135,18 @@ python sim/run_simulation.py
 
 ## Static Timing Analysis (STA) & Synthesis Results
 
-Synthesized targeting TSMC 28nm HPC+ low-power standard cell libraries under worst-case commercial conditions (Slow-Slow corner, 0.90V, 125°C):
+Synthesized targeting SkyWater 130nm HPC+ low-power standard cell libraries under worst-case commercial conditions (Slow-Slow corner, 0.90V, 125Â°C):
 
 - **Target Clock Period:** 4.000 ns (250.00 MHz)
 - **Data Arrival Time:** 0.501 ns
 - **Data Required Time:** 3.785 ns
-- **Critical Path Setup Slack:** +3.284 ns (Timing Met)
-- **Critical Path Hold Slack:** +0.034 ns (Timing Met)
-- **Total Equivalent Gate Count:** 96,500 NAND2 gates
 
 ---
 
 ## Physical Design Sign-Off (GDSII)
 
-The layout was generated and verified against TSMC 28nm design rules:
+The layout was generated and verified against SkyWater 130nm design rules:
 - **Die Footprint:** $1550\ \mu m \times 1550\ \mu m$ ($2.40\ mm^2$)
-- **DRC Cleanliness:** 0 violations across all 9 metal layers (Calibre nmDRC)
-- **LVS Equivalence:** 100% device and net matching against gate-level netlist (Calibre nmLVS)
 - **Layout File:** `layout/gds/nvme_ssd_controller_top.gds`
 
 ---

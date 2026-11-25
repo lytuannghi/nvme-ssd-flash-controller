@@ -7,7 +7,7 @@
 //              - Multi-Queue Arbiter & Hardware Doorbell Manager
 //              - Hardware Flash Translation Layer (FTL) & Wear-Leveling
 //              - Galois Field BCH ECC Encoder / Decoder
-//              - 8-Channel Toggle DDR NAND Flash Controller
+//              - 8-Channel Toggle DDR NAND Flash Controller (Verilog-2005 packed)
 // =============================================================================
 
 `timescale 1ns / 1ps
@@ -15,41 +15,61 @@
 module nvme_ssd_controller_top #(
     parameter CHANNELS = 8
 )(
-    input  wire                 clk,
-    input  wire                 rst_n,
+    input  wire                  clk,
+    input  wire                  rst_n,
 
     // Host Doorbell Register Interface
-    input  wire                 host_db_wr_en,
-    input  wire [7:0]           host_db_addr,
-    input  wire [15:0]          host_db_val,
+    input  wire                  host_db_wr_en,
+    input  wire [7:0]            host_db_addr,
+    input  wire [15:0]           host_db_val,
 
     // Host Command Ingestion Interface
-    input  wire                 host_cmd_valid,
-    input  wire [31:0]          host_cmd_dw0,
-    input  wire [31:0]          host_cmd_dw1,
-    input  wire [31:0]          host_cmd_dw10,
-    input  wire [31:0]          host_cmd_dw11,
-    input  wire [31:0]          host_cmd_dw12,
-    output wire                 host_cmd_ready,
+    input  wire                  host_cmd_valid,
+    input  wire [31:0]           host_cmd_dw0,
+    input  wire [31:0]           host_cmd_dw1,
+    input  wire [31:0]           host_cmd_dw10,
+    input  wire [31:0]           host_cmd_dw11,
+    input  wire [31:0]           host_cmd_dw12,
+    output wire                  host_cmd_ready,
 
     // Host Completion Queue DMA Interface
-    output wire                 host_cqe_valid,
-    output wire [127:0]         host_cqe_data,
-    output wire                 host_msix_irq,
+    output wire                  host_cqe_valid,
+    output wire [127:0]          host_cqe_data,
+    output wire                  host_msix_irq,
 
-    // Physical Toggle DDR NAND Flash Interface (8 Channels)
-    output wire [CHANNELS-1:0]  nand_cle,
-    output wire [CHANNELS-1:0]  nand_ale,
-    output wire [CHANNELS-1:0]  nand_ce_n,
-    output wire [CHANNELS-1:0]  nand_we_n,
-    output wire [CHANNELS-1:0]  nand_re_n,
-    output wire [CHANNELS-1:0]  nand_dqs,
-    output wire [7:0]           nand_dq_out [0:CHANNELS-1],
-    input  wire [7:0]           nand_dq_in  [0:CHANNELS-1],
+    // Physical Toggle DDR NAND Flash Interface (8 Channels, Packed)
+    output wire [CHANNELS-1:0]   nand_cle,
+    output wire [CHANNELS-1:0]   nand_ale,
+    output wire [CHANNELS-1:0]   nand_ce_n,
+    output wire [CHANNELS-1:0]   nand_we_n,
+    output wire [CHANNELS-1:0]   nand_re_n,
+    output wire [CHANNELS-1:0]   nand_dqs,
+    output wire [CHANNELS*8-1:0] nand_dq_out,
+    input  wire [CHANNELS*8-1:0] nand_dq_in,
+
+    // Host BCH ECC Control & Data Interface
+    input  wire                  host_ecc_enc_start,
+    input  wire [63:0]           host_ecc_enc_data,
+    input  wire                  host_ecc_enc_valid,
+    output wire                  host_ecc_enc_done,
+    output wire [63:0]           host_ecc_enc_parity,
+    input  wire                  host_ecc_dec_start,
+    input  wire [63:0]           host_ecc_dec_data,
+    input  wire                  host_ecc_dec_valid,
+    input  wire [63:0]           host_ecc_dec_parity,
+    output wire                  host_ecc_dec_done,
+    output wire [63:0]           host_ecc_dec_corrected,
+    output wire [4:0]            host_ecc_dec_errors,
+    output wire                  host_ecc_dec_uncorr,
+
+    // Host FTL Maintenance Interface
+    input  wire                  host_erase_req,
+    input  wire [9:0]            host_erase_block_idx,
 
     // Controller Status Telemetry
-    output wire                 status_gc_needed,
-    output wire [15:0]          status_max_erase_count
+    output wire                  status_cmd_pending,
+    output wire                  status_gc_needed,
+    output wire [15:0]           status_max_erase_count
 );
 
     // =========================================================================
@@ -105,6 +125,8 @@ module nvme_ssd_controller_top #(
     reg  [15:0] post_cid;
     reg  [15:0] post_status;
 
+    assign status_cmd_pending = sq_cmd_avail;
+
     nvme_queue_manager #(
         .NUM_QUEUES(8),
         .QUEUE_DEPTH(64)
@@ -130,14 +152,12 @@ module nvme_ssd_controller_top #(
     // =========================================================================
     // 3. Hardware Flash Translation Layer (FTL)
     // =========================================================================
-    wire       ftl_lookup_done;
-    wire [2:0] pba_channel;
-    wire [1:0] pba_die;
-    wire [9:0] pba_block;
-    wire [7:0] pba_page;
-    reg        block_erase_req;
-    reg  [9:0] erase_block_idx;
-    wire       erase_ack;
+    wire        ftl_lookup_done;
+    wire [2:0]  pba_channel;
+    wire [1:0]  pba_die;
+    wire [9:0]  pba_block;
+    wire [7:0]  pba_page;
+    wire        erase_ack;
     wire [15:0] min_erase_count;
 
     flash_translation_layer #(
@@ -154,8 +174,8 @@ module nvme_ssd_controller_top #(
         .pba_die        (pba_die),
         .pba_block      (pba_block),
         .pba_page       (pba_page),
-        .block_erase_req(block_erase_req),
-        .erase_block_idx(erase_block_idx),
+        .block_erase_req(host_erase_req),
+        .erase_block_idx(host_erase_block_idx),
         .erase_ack      (erase_ack),
         .max_erase_count(status_max_erase_count),
         .min_erase_count(min_erase_count),
@@ -165,50 +185,35 @@ module nvme_ssd_controller_top #(
     // =========================================================================
     // 4. Hardware BCH ECC Engine
     // =========================================================================
-    reg         ecc_enc_start;
-    reg  [63:0] ecc_enc_data_in;
-    reg         ecc_enc_data_valid;
-    wire        ecc_enc_done;
-    wire [63:0] ecc_enc_parity;
-
-    reg         ecc_dec_start;
-    reg  [63:0] ecc_dec_data_in;
-    reg         ecc_dec_data_valid;
-    reg  [63:0] ecc_dec_parity_in;
-    wire        ecc_dec_done;
-    wire [63:0] ecc_dec_data_corrected;
-    wire [4:0]  ecc_dec_errors_found;
-    wire        ecc_dec_uncorrectable;
-
     bch_ecc_engine u_bch_ecc (
         .clk               (clk),
         .rst_n             (rst_n),
-        .enc_start         (ecc_enc_start),
-        .enc_data_in       (ecc_enc_data_in),
-        .enc_data_valid    (ecc_enc_data_valid),
-        .enc_done          (ecc_enc_done),
-        .enc_parity_out    (ecc_enc_parity),
-        .dec_start         (ecc_dec_start),
-        .dec_data_in       (ecc_dec_data_in),
-        .dec_data_valid    (ecc_dec_data_valid),
-        .dec_parity_in     (ecc_dec_parity_in),
-        .dec_done          (ecc_dec_done),
-        .dec_data_corrected(ecc_dec_data_corrected),
-        .dec_errors_found  (ecc_dec_errors_found),
-        .dec_uncorrectable (ecc_dec_uncorrectable)
+        .enc_start         (host_ecc_enc_start),
+        .enc_data_in       (host_ecc_enc_data),
+        .enc_data_valid    (host_ecc_enc_valid),
+        .enc_done          (host_ecc_enc_done),
+        .enc_parity_out    (host_ecc_enc_parity),
+        .dec_start         (host_ecc_dec_start),
+        .dec_data_in       (host_ecc_dec_data),
+        .dec_data_valid    (host_ecc_dec_valid),
+        .dec_parity_in     (host_ecc_dec_parity),
+        .dec_done          (host_ecc_dec_done),
+        .dec_data_corrected(host_ecc_dec_corrected),
+        .dec_errors_found  (host_ecc_dec_errors),
+        .dec_uncorrectable (host_ecc_dec_uncorr)
     );
 
     // =========================================================================
     // 5. 8-Channel Toggle DDR NAND Flash Controller
     // =========================================================================
-    reg        nand_cmd_valid;
-    reg  [2:0] nand_channel_sel;
-    reg  [1:0] nand_op;
-    reg  [9:0] nand_block_reg;
-    reg  [7:0] nand_page_reg;
+    reg         nand_cmd_valid;
+    reg  [2:0]  nand_channel_sel;
+    reg  [1:0]  nand_op;
+    reg  [9:0]  nand_block_reg;
+    reg  [7:0]  nand_page_reg;
     reg  [63:0] nand_wr_data_reg;
-    wire       nand_busy;
-    wire       nand_done;
+    wire        nand_busy;
+    wire        nand_done;
     wire [63:0] nand_rd_data;
 
     toggle_nand_channel_controller #(
@@ -247,26 +252,17 @@ module nvme_ssd_controller_top #(
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            exec_state         <= STATE_IDLE;
-            post_cqe_en        <= 1'b0;
-            post_cqid          <= 4'd0;
-            post_cid           <= 16'd0;
-            post_status        <= 16'd0;
-            block_erase_req    <= 1'b0;
-            erase_block_idx    <= 10'd0;
-            ecc_enc_start      <= 1'b0;
-            ecc_enc_data_in    <= 64'd0;
-            ecc_enc_data_valid <= 1'b0;
-            ecc_dec_start      <= 1'b0;
-            ecc_dec_data_in    <= 64'd0;
-            ecc_dec_data_valid <= 1'b0;
-            ecc_dec_parity_in  <= 64'd0;
-            nand_cmd_valid     <= 1'b0;
-            nand_channel_sel   <= 3'd0;
-            nand_op            <= 2'd0;
-            nand_block_reg     <= 10'd0;
-            nand_page_reg      <= 8'd0;
-            nand_wr_data_reg   <= 64'd0;
+            exec_state       <= STATE_IDLE;
+            post_cqe_en      <= 1'b0;
+            post_cqid        <= 4'd0;
+            post_cid         <= 16'd0;
+            post_status      <= 16'd0;
+            nand_cmd_valid   <= 1'b0;
+            nand_channel_sel <= 3'd0;
+            nand_op          <= 2'd0;
+            nand_block_reg   <= 10'd0;
+            nand_page_reg    <= 8'd0;
+            nand_wr_data_reg <= 64'd0;
         end else begin
             post_cqe_en    <= 1'b0;
             nand_cmd_valid <= 1'b0;
@@ -275,11 +271,10 @@ module nvme_ssd_controller_top #(
                 STATE_IDLE: begin
                     if (cmd_parsed_pulse) begin
                         if (parsed_is_admin) begin
-                            // Immediate Admin CQE completion
                             post_cqe_en <= 1'b1;
-                            post_cqid   <= 4'd0; // Admin CQ
+                            post_cqid   <= 4'd0;
                             post_cid    <= parsed_cid;
-                            post_status <= 16'h0000; // Success
+                            post_status <= 16'h0000;
                         end else if (parsed_is_write || parsed_is_read) begin
                             exec_state <= STATE_FTL_WAIT;
                         end
@@ -288,7 +283,6 @@ module nvme_ssd_controller_top #(
 
                 STATE_FTL_WAIT: begin
                     if (ftl_lookup_done) begin
-                        // Launch NAND operation
                         nand_cmd_valid   <= 1'b1;
                         nand_channel_sel <= pba_channel;
                         nand_op          <= parsed_is_write ? 2'd1 : 2'd0;
@@ -307,11 +301,13 @@ module nvme_ssd_controller_top #(
 
                 STATE_POST_CQE: begin
                     post_cqe_en <= 1'b1;
-                    post_cqid   <= 4'd1; // I/O CQ 1
+                    post_cqid   <= 4'd1;
                     post_cid    <= parsed_cid;
-                    post_status <= 16'h0000; // Successful completion
+                    post_status <= 16'h0000;
                     exec_state  <= STATE_IDLE;
                 end
+
+                default: exec_state <= STATE_IDLE;
             endcase
         end
     end

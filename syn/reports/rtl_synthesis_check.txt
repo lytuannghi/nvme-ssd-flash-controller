@@ -1,0 +1,24 @@
+================================================================================
+RTL SYNTHESIS READINESS & CONSTRAINT REPORT: nvme-ssd-flash-controller
+Method : Static Verilog/SV Structural Parser + SDC Constraint Audit
+Note   : Foundry Gate-Level Netlist & STA require PDK Liberty (.lib) + Synopsys/OpenROAD
+================================================================================
+RTL Source Files Inspected : 6
+Code Lines (Non-Comment)   : 774
+Sequential Blocks          : 9
+Combinational Blocks       : 0
+Declared reg/logic Signals : 76
+
+MODULE BREAKDOWN:
+  rtl\ecc\bch_ecc_engine.v                      | modules=bch_ecc_engine               | loc=  90 | seq= 2 | comb= 0
+  rtl\ftl\flash_translation_layer.v             | modules=flash_translation_layer      | loc=  82 | seq= 1 | comb= 0
+  rtl\nand_ctrl\toggle_nand_channel_controller.v | modules=toggle_nand_channel_controller | loc= 148 | seq= 1 | comb= 0
+  rtl\nvme\nvme_admin_cmd_parser.v              | modules=nvme_admin_cmd_parser        | loc=  99 | seq= 1 | comb= 0
+  rtl\nvme_ssd_controller_top.v                 | modules=nvme_ssd_controller_top      | loc= 251 | seq= 1 | comb= 0
+  rtl\queue\nvme_queue_manager.v                | modules=nvme_queue_manager           | loc= 104 | seq= 3 | comb= 0
+
+SDC CLOCK CONSTRAINTS:
+  nvme_timing.sdc: port=clk | period=4.00 ns | target=250.00 MHz
+
+ARITHMETIC DIVISION/MODULO CHECK: CLEAN (0 combinational / or % operators)
+================================================================================
