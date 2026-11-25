@@ -1,7 +1,7 @@
 # Enterprise NVMe PCIe Gen3 SSD Controller ASIC
 
 ## Overview
-This repository contains the complete synthesizable Verilog RTL, cycle-accurate verification suite, static timing analysis (STA) constraints, and SkyWater 130nm GDSII physical design collateral for an enterprise-class NVMe PCIe Gen3 Solid-State Drive (SSD) Controller ASIC.
+This repository contains the complete synthesizable Verilog RTL, cycle-accurate verification suite, SDC timing constraints, and SkyWater 130nm GDSII physical design collateral for an enterprise-class NVMe PCIe Gen3 Solid-State Drive (SSD) Controller ASIC.
 
 The architecture features a dedicated hardware NVMe 64-byte command parser supporting Admin and NVM command sets, a multi-queue hardware arbiter managing Submission Queues (SQ) and Completion Queues (CQ) with doorbell registers and phase tag tracking, a hardware Flash Translation Layer (FTL) for out-of-place page mapping and dynamic wear-leveling, a Galois Field $GF(2^{14})$ BCH error correction code (ECC) engine, and an 8-channel parallel Toggle DDR NAND Flash interface delivering aggregate flash bandwidth exceeding 3.2 GB/s.
 
@@ -46,7 +46,7 @@ The architecture features a dedicated hardware NVMe 64-byte command parser suppo
 
 | Metric / Parameter | Value | Description |
 | :--- | :--- | :--- |
-| Technology Node | SkyWater 130nm HPC+ | 1-Poly 9-Metal (1P9M) CMOS logic process |
+| Technology Node | SkyWater 130nm (`sky130_fd_sc_hd`) | 1-Poly 5-Metal (1P5M) GDSII Deck |
 | System Clock Frequency | 250.00 MHz | Period = 4.000 ns |
 | Host Protocol Standard | NVM Express (NVMe) 1.4 | PCIe Gen3 x4 interface compatibility |
 | Command Format | 64-byte Submission Entries | Hardware decoded (Identify, Create SQ/CQ, Read, Write) |
@@ -57,8 +57,7 @@ The architecture features a dedicated hardware NVMe 64-byte command parser suppo
 | Error Correction Code | Hardware Galois Field BCH | $GF(2^{14})$ LFSR generator and syndrome decoder |
 | NAND Flash Interface | 8-Channel Toggle DDR | Double Data Rate (DQS) operating up to 400 MT/s |
 | Aggregate Flash Bandwidth | 3.2 GB/s | 8 channels x 400 MB/s interleaved striping |
-| Die Dimensions | $1550\ \mu m \times 1550\ \mu m$ | Inclusive of standard I/O pad ring and seal ring |
-| Dynamic Power Dissipation | 24.8 mW | Measured at 250 MHz, 0.90V core supply |
+| GDSII Die Dimensions | 420.00 um x 420.00 um | Verified with 0 geometric DRC violations |
 
 ---
 
@@ -66,60 +65,60 @@ The architecture features a dedicated hardware NVMe 64-byte command parser suppo
 
 ```
 nvme-ssd-flash-controller/
-â”œâ”€â”€ rtl/
-â”‚   â”œâ”€â”€ bus/
-â”‚   â”œâ”€â”€ ecc/
-â”‚   â”‚   â””â”€â”€ bch_ecc_engine.v             # Hardware BCH Galois Field ECC encoder / decoder
-â”‚   â”œâ”€â”€ ftl/
-â”‚   â”‚   â””â”€â”€ flash_translation_layer.v    # Hardware FTL address mapping & wear-leveling
-â”‚   â”œâ”€â”€ nand_ctrl/
-â”‚   â”‚   â””â”€â”€ toggle_nand_channel_controller.v # 8-channel Toggle DDR NAND controller
-â”‚   â”œâ”€â”€ nvme/
-â”‚   â”‚   â””â”€â”€ nvme_admin_cmd_parser.v      # 64-byte NVMe Admin & NVM command parser
-â”‚   â”œâ”€â”€ queue/
-â”‚   â”‚   â””â”€â”€ nvme_queue_manager.v         # Hardware doorbell, queue arbiter & CQE engine
-â”‚   â””â”€â”€ nvme_ssd_controller_top.v        # Integrated SoC top-level wrapper
-â”œâ”€â”€ tb/
-â”‚   â””â”€â”€ tb_nvme_ssd_controller.v         # Self-checking verification testbench
-â”œâ”€â”€ sim/
-â”‚   â”œâ”€â”€ run_simulation.py                # Automated simulation and assertion runner
-â”‚   â””â”€â”€ waves/
-â”‚       â””â”€â”€ tb_nvme_ssd_controller.vcd   # Signal activity dump for waveform inspection
-â”œâ”€â”€ syn/
-â”‚   â”œâ”€â”€ nvme_timing.sdc                  # Synopsys Design Constraints (250 MHz)
-â”‚   â””â”€â”€ reports/
-â”‚       â”œâ”€â”€ timing_report.txt            # Static timing analysis report (+3.284 ns slack)
-â”‚       â””â”€â”€ area_report.txt              # Hierarchical gate and cell area breakdown
-â”œâ”€â”€ layout/
-â”‚   â”œâ”€â”€ gds/
-â”‚   â”‚   â””â”€â”€ nvme_ssd_controller_top.gds  # Stream GDSII binary layout
-â”‚   â”œâ”€â”€ scripts/
-â”‚   â”‚   â””â”€â”€ build_layout_nvme.py         # Automated GDSII floorplan and routing generator
-â”‚   â””â”€â”€ reports/
-â”œâ”€â”€ .gitignore
-â””â”€â”€ README.md
+|--  rtl/
+|   |--  bus/
+|   |--  ecc/
+|   |   \--  bch_ecc_engine.v             # Hardware BCH Galois Field ECC encoder / decoder
+|   |--  ftl/
+|   |   \--  flash_translation_layer.v    # Hardware FTL address mapping & wear-leveling
+|   |--  nand_ctrl/
+|   |   \--  toggle_nand_channel_controller.v # 8-channel Toggle DDR NAND controller
+|   |--  nvme/
+|   |   \--  nvme_admin_cmd_parser.v      # 64-byte NVMe Admin & NVM command parser
+|   |--  queue/
+|   |   \--  nvme_queue_manager.v         # Hardware doorbell, queue arbiter & CQE engine
+|   \--  nvme_ssd_controller_top.v        # Integrated SoC top-level wrapper
+|--  tb/
+|   \--  tb_nvme_ssd_controller.v         # Self-checking verification testbench
+|--  sim/
+|   |--  run_simulation.py                # Automated simulation and assertion runner
+|   \--  waves/
+|       \--  tb_nvme_ssd_controller.vcd   # Signal activity dump for waveform inspection
+|--  syn/
+|   |--  nvme_timing.sdc                  # Synopsys Design Constraints (250 MHz)
+|   \--  reports/
+|       |--  timing_report.txt            # SDC constraint & register audit (external OpenSTA needed for slack)
+|       \--  area_report.txt              # Static RTL structural audit summary
+|--  layout/
+|   |--  gds/
+|   |   \--  nvme_ssd_controller_top.gds  # Stream GDSII binary layout
+|   |--  scripts/
+|   |   \--  build_layout_nvme.py         # Automated GDSII floorplan and routing generator
+|   \--  reports/
+|--  .gitignore
+\--  README.md
 ```
 
 ---
 
 ## Verification Results
 
-The verification environment executes 10 comprehensive assertion-based test suites using Icarus Verilog (`iverilog`) and `vvp`:
+The verification environment executes 10 assertion-based test cases using Icarus Verilog (`iverilog -Wall -g2005`) and `vvp`:
 
-```
+```text
 =====================================================================
    ENTERPRISE NVME PCIE GEN3 SSD CONTROLLER ASIC VERIFICATION SUITE  
 =====================================================================
-[PASS] Test 1: Power-on Reset successful. Admin Queue initialized with Phase=1.
+[PASS] Test 1: Power-on Reset verified across host, NAND, and FTL ports.
 [PASS] Test 2: NVMe Identify Controller Admin command completed with valid CQE.
 [PASS] Test 3: I/O Submission & Completion Queues created successfully.
-[PASS] Test 4: Host Doorbell write registered. SQ 1 Tail advanced to 1.
-[PASS] Test 5: Hardware FTL translated LBA 5 -> Channel 5, Block 1, Page 0.
+[PASS] Test 4: Host Doorbell write registered; Queue Arbiter flagged pending SQ work.
+[PASS] Test 5: Hardware FTL routed LBA 5 cleanly to physical NAND Channel 5.
 [PASS] Test 6: BCH ECC Engine generated 64-bit Galois Field parity: efee4ee3082c1b89
-[PASS] Test 7: Multi-Channel Toggle NAND Page Program executed with DDR DQS strobe.
-[PASS] Test 8: BCH Decoder located and corrected 1-bit memory flip successfully.
+[PASS] Test 7: Toggle NAND Page Program completed with DDR DQS strobe and released CE#.
+[PASS] Test 8: BCH Decoder located and corrected bit-37 memory flip successfully.
 [PASS] Test 9: Wear-leveling tracked block erase count (55) and triggered GC.
-[PASS] Test 10: NVMe CQE posted via DMA and Host MSI-X Interrupt asserted successfully.
+[PASS] Test 10: NVMe Write CQE (CID=0x0010) posted via DMA with Host MSI-X IRQ.
 =====================================================================
    TEST SUMMARY: PASSED 10 / 10 TESTS
 =====================================================================
@@ -133,21 +132,45 @@ python sim/run_simulation.py
 
 ---
 
-## Static Timing Analysis (STA) & Synthesis Results
+## RTL Synthesis Readiness & SDC Audit
 
-Synthesized targeting SkyWater 130nm HPC+ low-power standard cell libraries under worst-case commercial conditions (Slow-Slow corner, 0.90V, 125Â°C):
+Static Verilog-2005 structural parsing and SDC constraint audit were executed via `syn/analyze_rtl.py` (external Yosys/OpenROAD/OpenSTA required for post-synthesis gate counts and STA slack):
 
-- **Target Clock Period:** 4.000 ns (250.00 MHz)
-- **Data Arrival Time:** 0.501 ns
-- **Data Required Time:** 3.785 ns
+```text
+================================================================================
+RTL SYNTHESIS READINESS & CONSTRAINT REPORT: nvme-ssd-flash-controller
+Method : Static Verilog/SV Structural Parser + SDC Constraint Audit
+Note   : Foundry Gate-Level Netlist & STA require PDK Liberty (.lib) + Synopsys/OpenROAD
+================================================================================
+RTL Source Files Inspected : 6
+Code Lines (Non-Comment)   : 774
+Sequential Blocks          : 9
+Combinational Blocks       : 0
+Declared reg/logic Signals : 76
+
+MODULE BREAKDOWN:
+  rtl\ecc\bch_ecc_engine.v                      | modules=bch_ecc_engine               | loc=  90 | seq= 2 | comb= 0
+  rtl\ftl\flash_translation_layer.v             | modules=flash_translation_layer      | loc=  82 | seq= 1 | comb= 0
+  rtl\nand_ctrl\toggle_nand_channel_controller.v | modules=toggle_nand_channel_controller | loc= 148 | seq= 1 | comb= 0
+  rtl\nvme\nvme_admin_cmd_parser.v              | modules=nvme_admin_cmd_parser        | loc=  99 | seq= 1 | comb= 0
+  rtl\nvme_ssd_controller_top.v                 | modules=nvme_ssd_controller_top      | loc= 251 | seq= 1 | comb= 0
+  rtl\queue\nvme_queue_manager.v                | modules=nvme_queue_manager           | loc= 104 | seq= 3 | comb= 0
+
+SDC CLOCK CONSTRAINTS:
+  nvme_timing.sdc: port=clk | period=4.00 ns | target=250.00 MHz
+
+ARITHMETIC DIVISION/MODULO CHECK: CLEAN (0 combinational / or % operators)
+================================================================================
+```
 
 ---
 
 ## Physical Design Sign-Off (GDSII)
 
-The layout was generated and verified against SkyWater 130nm design rules:
-- **Die Footprint:** $1550\ \mu m \times 1550\ \mu m$ ($2.40\ mm^2$)
-- **Layout File:** `layout/gds/nvme_ssd_controller_top.gds`
+The physical layout was generated and checked against the SkyWater 130nm geometric deck (`layout/scripts/verify_gds_drc.py`):
+- **Die Footprint:** 420.00 um x 420.00 um (0 geometric DRC violations)
+- **Layout Directory:** `layout/gds/`
+- **Note:** External Magic/Netgen and Yosys/OpenSTA required for SPICE LVS and post-layout STA.
 
 ---
 
